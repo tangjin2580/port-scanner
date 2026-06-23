@@ -1027,11 +1027,27 @@ def create_app():
     # 优雅关闭
     async def on_shutdown(app):
         scanner.stop_scan()
+        # 关闭线程池
+        if scanner._executor:
+            scanner._executor.shutdown(wait=False)
+        # 关闭所有 WS
         with scanner._ws_lock:
             for ws in list(scanner._ws_clients):
-                await ws.close(code=1001, message=b'server shutdown')
+                try:
+                    await ws.close(code=1001, message=b'server shutdown')
+                except Exception:
+                    pass
+        print("\n✋ 服务已关闭")
 
     app.on_shutdown.append(on_shutdown)
+
+    # Ctrl+C 处理
+    async def on_cleanup(app):
+        scanner.stop_scan()
+        if scanner._executor:
+            scanner._executor.shutdown(wait=False)
+
+    app.on_cleanup.append(on_cleanup)
 
     # CORS
     cors = aiohttp_cors.setup(app, defaults={
@@ -1078,4 +1094,12 @@ if __name__ == '__main__':
     app = create_app()
     port = int(os.environ.get('PORT', 8088))
     print(f"   访问地址: http://0.0.0.0:{port}")
-    web.run_app(app, host='0.0.0.0', port=port)
+    print(f"   按 Ctrl+C 退出")
+    try:
+        web.run_app(app, host='0.0.0.0', port=port)
+    except KeyboardInterrupt:
+        print("\n✋ 收到 Ctrl+C，正在关闭...")
+        scanner.stop_scan()
+        if scanner._executor:
+            scanner._executor.shutdown(wait=False)
+        print("👋 NetScope 已退出")
