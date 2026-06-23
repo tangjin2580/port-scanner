@@ -621,6 +621,39 @@ tr:hover {
 .service-badge.remote { background: #ff386033; color: var(--accent-red); }
 .service-badge.other { background: var(--accent-green-dim); color: var(--accent-green); }
 
+/* ═══════ 端口链接 ═══════ */
+.port-link {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-weight: 700;
+  border-bottom: 1px dashed var(--accent-cyan);
+  transition: all 0.2s;
+}
+.port-link:hover {
+  color: #fff;
+  border-bottom-color: #fff;
+  text-shadow: 0 0 8px var(--accent-cyan);
+}
+.port-link-ssh {
+  color: var(--accent-green);
+  text-decoration: none;
+  font-size: 0.7rem;
+  margin-left: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.port-link-ssh:hover { opacity: 1; }
+.log-link {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-size: 0.75rem;
+  margin-left: 4px;
+  opacity: 0.7;
+  transition: all 0.2s;
+}
+.log-link:hover { opacity: 1; text-shadow: 0 0 6px var(--accent-cyan); }
+.ip-cell { cursor: default; }
+
 /* ═══════ 驾驶舱 / 大屏 ═══════ */
 .cockpit {
   max-width: 1600px;
@@ -1309,8 +1342,9 @@ function handleWSMessage(data) {
       break;
 
     case 'port_found':
-      addLog('find', `[+] ${data.ip}:${data.port.port} → ${data.port.service} ${data.port.version}`);
-      addCockpitLog('find', `${data.ip}:${data.port.port} ${data.port.service}`);
+      const pLink = makePortLogLink(data.ip, data.port.port, data.port.service);
+      addLog('find', `[+] ${data.ip}:${data.port.port} → ${data.port.service} ${data.port.version} ${pLink}`);
+      addCockpitLog('find', `${data.ip}:${data.port.port} ${data.port.service} ${pLink}`);
       break;
 
     case 'discovery_done':
@@ -1475,16 +1509,42 @@ function renderResults(data) {
     const tr = document.createElement('tr');
     tr.className = 'port-row-enter';
     tr.style.animationDelay = `${Math.min(i * 20, 500)}ms`;
+    const portCell = makePortLink(r.ip, r.port, r.service);
     tr.innerHTML = `
-      <td>${r.ip}</td>
-      <td>${r.hostname}</td>
-      <td style="color:var(--accent-cyan);font-weight:600">${r.port}</td>
+      <td>${makeIPLink(r.ip, r.hostname)}</td>
+      <td>${r.hostname !== '-' ? r.hostname : '-'}</td>
+      <td style="color:var(--accent-cyan);font-weight:600">${portCell}</td>
       <td>${serviceBadge(r.service)}</td>
       <td style="color:var(--text-secondary)">${escapeHtml(r.version)}</td>
       <td style="color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.banner)}">${escapeHtml(r.banner)}</td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+/* ═══════ 可点击链接生成 ═══════ */
+const WEB_SERVICES = new Set(['http','https','http-proxy','https-alt','flask','django','nodejs-app','sun-answerbook','zeus-admin','weblogic']);
+
+function makePortLink(ip, port, service) {
+  if (WEB_SERVICES.has(service)) {
+    const proto = (service === 'https' || service === 'https-alt' || port === 443 || port === 8443) ? 'https' : 'http';
+    const isDefaultPort = (proto === 'http' && port === 80) || (proto === 'https' && port === 443);
+    const url = isDefaultPort ? `${proto}://${ip}` : `${proto}://${ip}:${port}`;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="port-link" title="点击打开 ${url}">${port} 🔗</a>`;
+  }
+  // SSH / Telnet 等远程服务也可以链接
+  if (service === 'ssh') {
+    return `${port} <a href="ssh://${ip}:${port}" class="port-link-ssh" title="SSH 连接">🔗</a>`;
+  }
+  if (service === 'vnc' || service === 'ms-wbt-server') {
+    return `${port} <a href="vnc://${ip}:${port}" class="port-link-ssh" title="远程桌面连接">🔗</a>`;
+  }
+  return port;
+}
+
+function makeIPLink(ip, hostname) {
+  // IP 本身也可以快速 ping/ssh
+  return `<span class="ip-cell">${ip}</span>`;
 }
 
 function serviceBadge(service) {
@@ -1812,7 +1872,10 @@ function renderRiskPorts(topPorts) {
 /* ═══════ Tooltip ═══════ */
 function showHostTooltip(e, ip, host) {
   const tt = document.getElementById('hostTooltip');
-  const ports = host.open_ports.map(p => `${p.port}/${p.service}`).join(', ');
+  const ports = host.open_ports.map(p => {
+    const link = makePortLogLink(ip, p.port, p.service);
+    return `${p.port}/${p.service}${link}`;
+  }).join(', ');
   tt.innerHTML = `
     <div class="tt-ip">${ip}</div>
     <div class="tt-row"><span>主机名</span><span>${host.hostname || '-'}</span></div>
@@ -1875,6 +1938,22 @@ function setPorts(v) { document.getElementById('portInput').value = v; }
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function makePortLogLink(ip, port, service) {
+  if (WEB_SERVICES.has(service)) {
+    const proto = (service === 'https' || service === 'https-alt' || port === 443 || port === 8443) ? 'https' : 'http';
+    const isDefaultPort = (proto === 'http' && port === 80) || (proto === 'https' && port === 443);
+    const url = isDefaultPort ? `${proto}://${ip}` : `${proto}://${ip}:${port}`;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="log-link" title="打开 ${url}">🔗</a>`;
+  }
+  if (service === 'ssh') {
+    return `<a href="ssh://${ip}:${port}" class="log-link" title="SSH 连接">🔗</a>`;
+  }
+  if (service === 'vnc' || service === 'ms-wbt-server') {
+    return `<a href="vnc://${ip}:${port}" class="log-link" title="远程桌面">🔗</a>`;
+  }
+  return '';
 }
 
 function updateCockpitTime() {
