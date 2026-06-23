@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetScope - 内网端口发现系统</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════ CSS 变量 & 基础 ═══════ */
+:root {
+  --bg-deep: #060b18;
+  --bg-primary: #0a1128;
+  --bg-card: #0f1a36;
+  --bg-card-hover: #142040;
+  --bg-input: #0d1630;
+  --border: #1a2744;
+  --border-glow: #1e3a5f;
+  --text-primary: #e8ecf4;
+  --text-secondary: #7a8bb5;
+  --text-muted: #4a5a7f;
+  --accent-cyan: #00d4ff;
+  --accent-cyan-dim: #00d4ff33;
+  --accent-green: #00ff88;
+  --accent-green-dim: #00ff8833;
+  --accent-orange: #ff8c00;
+  --accent-orange-dim: #ff8c0033;
+  --accent-red: #ff3860;
+  --accent-purple: #a855f7;
+  --accent-purple-dim: #a855f733;
+  --gradient-cyan: linear-gradient(135deg, #00d4ff, #0088cc);
+  --gradient-green: linear-gradient(135deg, #00ff88, #00cc6a);
+  --gradient-orange: linear-gradient(135deg, #ff8c00, #cc6600);
+  --shadow-glow: 0 0 20px rgba(0, 212, 255, 0.15);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { font-size: 14px; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* 背景网格动画 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 212, 255, 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(0, 255, 136, 0.02) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(168, 85, 247, 0.02) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══════ 导航栏 ═══════ */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: rgba(10, 17, 40, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 100;
+  gap: 32px;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.nav-brand .logo {
+  width: 36px;
+  height: 36px;
+  background: var(--gradient-cyan);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bg-deep);
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.3);
+  animation: logoPulse 3s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(0, 212, 255, 0.3); }
+  50% { box-shadow: 0 0 24px rgba(0, 212, 255, 0.5); }
+}
+
+.nav-brand h1 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  background: var(--gradient-cyan);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 1px;
+}
+
+.nav-brand .tag {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.nav-tab {
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+.nav-tab::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background: var(--accent-cyan);
+  transition: var(--transition);
+  border-radius: 1px;
+}
+
+.nav-tab:hover {
+  color: var(--text-primary);
+  background: rgba(0, 212, 255, 0.05);
+}
+
+.nav-tab.active {
+  color: var(--accent-cyan);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.nav-tab.active::before { width: 60%; }
+
+.nav-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.nav-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  animation: statusBlink 2s ease-in-out infinite;
+}
+
+.nav-status .dot.scanning {
+  background: var(--accent-cyan);
+  animation: statusBlink 0.8s ease-in-out infinite;
+}
+
+@keyframes statusBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ═══════ 主内容 ═══════ */
+.main {
+  position: relative;
+  z-index: 1;
+  padding-top: 60px;
+  min-height: 100vh;
+}
+
+.page {
+  display: none;
+  padding: 24px;
+  animation: pageIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page.active { display: block; }
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════ 卡片 ═══════ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-cyan-dim), transparent);
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.card:hover::before { opacity: 1; }
+
+.card:hover {
+  border-color: var(--border-glow);
+  box-shadow: var(--shadow-glow);
+}
+
+.card-title {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+/* ═══════ 扫描控制面板 ═══════ */
+.scan-panel {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.scan-hero {
+  text-align: center;
+  padding: 48px 20px 32px;
+}
+
+.scan-hero h2 {
+  font-size: 2.2rem;
+  font-weight: 900;
+  margin-bottom: 12px;
+  line-height: 1.2;
+}
+
+.scan-hero h2 span {
+  background: var(--gradient-cyan);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.scan-hero p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.scan-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.scan-form .full { grid-column: 1 / -1; }
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: 'JetBrains Mono', monospace;
+  transition: var(--transition);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px var(--accent-cyan-dim);
+}
+
+.form-input::placeholder {
+  color: var(--text-muted);
+}
+
+.scan-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 12px 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(255,255,255,0.1), transparent);
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.btn:hover::after { opacity: 1; }
+
+.btn-primary {
+  background: var(--gradient-cyan);
+  color: var(--bg-deep);
+  box-shadow: 0 4px 16px rgba(0, 212, 255, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 212, 255, 0.4);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-danger {
+  background: var(--accent-red);
+  color: white;
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  border-color: var(--border-glow);
+  background: var(--bg-card-hover);
+}
+
+.btn-success {
+  background: var(--gradient-green);
+  color: var(--bg-deep);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ═══════ 扫描进度 ═══════ */
+.scan-progress {
+  margin: 24px 0;
+  display: none;
+}
+
+.scan-progress.active { display: block; }
+
+.progress-bar-container {
+  background: var(--bg-input);
+  border-radius: 8px;
+  height: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--gradient-cyan);
+  border-radius: 8px;
+  width: 0%;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: progressShine 2s linear infinite;
+}
+
+@keyframes progressShine {
+  from { transform: translateX(-100px); }
+  to { transform: translateX(100px); }
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.scan-phase {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--accent-cyan-dim);
+  border-radius: var(--radius-sm);
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: var(--accent-cyan);
+}
+
+.scan-phase .spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--accent-cyan-dim);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════ 结果表格 ═══════ */
+.results-section {
+  margin-top: 24px;
+  display: none;
+}
+
+.results-section.active { display: block; }
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.results-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.export-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.search-box {
+  margin-bottom: 16px;
+}
+
+.search-box input {
+  width: 100%;
+  max-width: 400px;
+  padding: 10px 16px 10px 40px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: var(--transition);
+}
+
+.search-box input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px var(--accent-cyan-dim);
+}
+
+.search-box { position: relative; }
+
+.search-box::before {
+  content: '🔍';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+thead {
+  background: rgba(0, 212, 255, 0.05);
+  position: sticky;
+  top: 0;
+}
+
+th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+}
+
+tr {
+  transition: var(--transition);
+}
+
+tr:hover {
+  background: rgba(0, 212, 255, 0.03);
+}
+
+.service-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  gap: 4px;
+}
+
+.service-badge.web { background: var(--accent-cyan-dim); color: var(--accent-cyan); }
+.service-badge.db { background: var(--accent-orange-dim); color: var(--accent-orange); }
+.service-badge.mail { background: var(--accent-purple-dim); color: var(--accent-purple); }
+.service-badge.remote { background: #ff386033; color: var(--accent-red); }
+.service-badge.other { background: var(--accent-green-dim); color: var(--accent-green); }
+
+/* ═══════ 驾驶舱 / 大屏 ═══════ */
+.cockpit {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.cockpit-header {
+  text-align: center;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.cockpit-header h2 {
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+.cockpit-header h2 span {
+  background: var(--gradient-cyan);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.cockpit-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.stat-card .stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-card .stat-value.cyan { color: var(--accent-cyan); }
+.stat-card .stat-value.green { color: var(--accent-green); }
+.stat-card .stat-value.orange { color: var(--accent-orange); }
+.stat-card .stat-value.purple { color: var(--accent-purple); }
+
+.stat-card .stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.stat-card .stat-icon {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  opacity: 0.6;
+}
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.charts-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.charts-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.chart-canvas-wrap {
+  position: relative;
+  height: 280px;
+}
+
+.chart-canvas-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 主机地图 */
+.host-map {
+  min-height: 200px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px;
+  justify-content: center;
+}
+
+.host-node {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  position: relative;
+  animation: nodeAppear 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes nodeAppear {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.host-node:hover {
+  transform: scale(1.15);
+  border-color: var(--accent-cyan);
+  box-shadow: var(--shadow-glow);
+  z-index: 10;
+}
+
+.host-node .node-ip {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 54px;
+}
+
+.host-node .node-count {
+  color: var(--accent-cyan);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.host-node .node-os {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.host-node .node-os.win { color: var(--accent-cyan); border-color: var(--accent-cyan-dim); }
+.host-node .node-os.linux { color: var(--accent-green); border-color: var(--accent-green-dim); }
+
+/* 实时日志 */
+.live-log {
+  max-height: 240px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  padding: 8px;
+  background: var(--bg-deep);
+  border-radius: var(--radius-sm);
+}
+
+.live-log::-webkit-scrollbar {
+  width: 4px;
+}
+
+.live-log::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.live-log::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.log-entry {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(26, 39, 68, 0.3);
+  display: flex;
+  gap: 8px;
+  animation: logSlide 0.3s ease;
+}
+
+@keyframes logSlide {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.log-time { color: var(--text-muted); white-space: nowrap; }
+.log-find { color: var(--accent-green); }
+.log-info { color: var(--accent-cyan); }
+.log-warn { color: var(--accent-orange); }
+
+/* ═══════ Toast 通知 ═══════ */
+.toast-container {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  box-shadow: var(--shadow-card);
+  animation: toastIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 260px;
+}
+
+.toast.success { border-color: var(--accent-green); }
+.toast.info { border-color: var(--accent-cyan); }
+.toast.error { border-color: var(--accent-red); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(40px); }
+}
+
+/* ═══════ 空状态 ═══════ */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* ═══════ 响应式 ═══════ */
+@media (max-width: 1024px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .charts-row, .charts-row-2 { grid-template-columns: 1fr; }
+  .charts-row-3 { grid-template-columns: 1fr; }
+  .scan-form { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .stats-row { grid-template-columns: 1fr; }
+  .navbar { padding: 0 12px; gap: 12px; }
+  .nav-brand .tag { display: none; }
+  .page { padding: 16px; }
+}
+
+/* ═══════ 数字动画 ═══════ */
+.animate-number {
+  display: inline-block;
+  transition: var(--transition);
+}
+
+/* ═══════ 粒子扫描线 ═══════ */
+.scan-line {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+  z-index: 99;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.scan-line.active {
+  opacity: 0.6;
+  animation: scanLineMove 3s linear infinite;
+}
+
+@keyframes scanLineMove {
+  0% { top: 60px; }
+  100% { top: 100vh; }
+}
+
+/* 端口列表项动画 */
+.port-row-enter {
+  animation: portRowEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes portRowEnter {
+  from { opacity: 0; transform: translateX(-20px); background: var(--accent-cyan-dim); }
+  to { opacity: 1; transform: translateX(0); background: transparent; }
+}
+
+/* 快速预设按钮 */
+.preset-btns {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.preset-btn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  background: var(--accent-cyan-dim);
+}
+
+/* Tooltip */
+.host-tooltip {
+  display: none;
+  position: fixed;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 0.8rem;
+  z-index: 200;
+  box-shadow: var(--shadow-card);
+  min-width: 200px;
+  max-width: 320px;
+  pointer-events: none;
+}
+
+.host-tooltip.visible { display: block; }
+
+.host-tooltip .tt-ip {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-bottom: 6px;
+}
+
+.host-tooltip .tt-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.host-tooltip .tt-ports {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--accent-green);
+}
+</style>
+</head>
+<body>
+
+<!-- 扫描线效果 -->
+<div class="scan-line" id="scanLine"></div>
+
+<!-- 导航栏 -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="logo">N</div>
+    <h1>NetScope</h1>
+    <span class="tag">v1.0</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-page="scan" onclick="switchPage('scan')">🎯 扫描</button>
+    <button class="nav-tab" data-page="results" onclick="switchPage('results')">📋 结果</button>
+    <button class="nav-tab" data-page="cockpit" onclick="switchPage('cockpit')">🛸 驾驶舱</button>
+  </div>
+  <div class="nav-status">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">就绪</span>
+  </div>
+</nav>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- 主机 Tooltip -->
+<div class="host-tooltip" id="hostTooltip"></div>
+
+<!-- 主内容 -->
+<div class="main">
+
+  <!-- ===== 扫描页 ===== -->
+  <div class="page active" id="page-scan">
+    <div class="scan-panel">
+      <div class="scan-hero">
+        <h2>内网端口<span>发现引擎</span></h2>
+        <p>高效异步扫描，智能服务识别，实时可视化分析。<br>支持 CIDR、IP范围、自定义端口批量探测。</p>
+      </div>
+
+      <div class="card">
+        <div class="scan-form">
+          <div class="form-group">
+            <label>🎯 目标地址</label>
+            <input class="form-input" id="targetInput" placeholder="192.168.1.0/24 或 10.0.0.1-254" value="127.0.0.1">
+            <div class="preset-btns">
+              <button class="preset-btn" onclick="setTarget('192.168.1.0/24')">192.168.1.0/24</button>
+              <button class="preset-btn" onclick="setTarget('10.0.0.0/24')">10.0.0.0/24</button>
+              <button class="preset-btn" onclick="setTarget('172.16.0.0/24')">172.16.0.0/24</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>🔌 端口范围</label>
+            <input class="form-input" id="portInput" placeholder="1-1024 或 80,443,8080" value="1-1024">
+            <div class="preset-btns">
+              <button class="preset-btn" onclick="setPorts('1-1024')">常用端口</button>
+              <button class="preset-btn" onclick="setPorts('1-65535')">全端口</button>
+              <button class="preset-btn" onclick="setPorts('21,22,23,25,53,80,110,135,139,143,443,445,993,995,1433,3306,3389,5432,6379,8080,8443,9200,27017')">核心服务</button>
+              <button class="preset-btn" onclick="setPorts('1-10000')">Top 10K</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="scan-actions">
+          <button class="btn btn-primary" id="btnStart" onclick="startScan()">🚀 开始扫描</button>
+          <button class="btn btn-secondary" id="btnPause" onclick="pauseScan()" disabled>⏸ 暂停</button>
+          <button class="btn btn-success" id="btnResume" onclick="resumeScan()" style="display:none">▶ 继续</button>
+          <button class="btn btn-danger" id="btnStop" onclick="stopScan()" disabled>⏹ 停止</button>
+        </div>
+      </div>
+
+      <div class="scan-progress" id="scanProgress">
+        <div class="card" style="margin-top:20px;">
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-info">
+            <span id="progressPercent">0%</span>
+            <span id="progressDetail">准备中...</span>
+          </div>
+          <div class="scan-phase" id="scanPhase" style="display:none">
+            <div class="spinner"></div>
+            <span id="phaseText">扫描中</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 实时发现日志 -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title"><span class="icon">📡</span> 实时发现</div>
+        <div class="live-log" id="liveLog">
+          <div class="log-entry"><span class="log-info">系统就绪，等待扫描指令...</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 结果页 ===== -->
+  <div class="page" id="page-results">
+    <div class="results-section active" id="resultsContent">
+      <div class="results-header">
+        <h3>📋 扫描结果</h3>
+        <div class="export-btns">
+          <button class="btn btn-secondary" onclick="exportCSV()" style="font-size:0.8rem;padding:8px 16px">📥 导出 CSV</button>
+          <button class="btn btn-secondary" onclick="exportJSON()" style="font-size:0.8rem;padding:8px 16px">📥 导出 JSON</button>
+        </div>
+      </div>
+      <div class="search-box">
+        <input placeholder="搜索 IP、端口、服务..." id="searchInput" oninput="filterResults()">
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>IP 地址</th>
+              <th>主机名</th>
+              <th>端口</th>
+              <th>服务</th>
+              <th>版本</th>
+              <th>Banner</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody">
+          </tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="emptyResults">
+        <div class="empty-icon">🔍</div>
+        <p>暂无扫描结果<br>请先执行一次扫描任务</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 驾驶舱 ===== -->
+  <div class="page" id="page-cockpit">
+    <div class="cockpit">
+      <div class="cockpit-header">
+        <h2>🛸 <span>NETSCOPE</span> 态势感知中心</h2>
+        <div class="cockpit-time" id="cockpitTime"></div>
+      </div>
+
+      <div class="stats-row">
+        <div class="card stat-card">
+          <div class="stat-icon">🖥️</div>
+          <div class="stat-value cyan" id="statHosts">0</div>
+          <div class="stat-label">存活主机</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">🔌</div>
+          <div class="stat-value green" id="statPorts">0</div>
+          <div class="stat-label">开放端口</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">⚙️</div>
+          <div class="stat-value orange" id="statServices">0</div>
+          <div class="stat-label">识别服务</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">🧵</div>
+          <div class="stat-value purple" id="statThreads">-</div>
+          <div class="stat-label">扫描线程</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-value purple" id="statDuration">0s</div>
+          <div class="stat-label">扫描耗时</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="card">
+          <div class="card-title"><span class="icon">📊</span> TOP 15 高频端口</div>
+          <div class="chart-canvas-wrap"><canvas id="chartPorts"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon">🍩</span> 服务类型分布</div>
+          <div class="chart-canvas-wrap"><canvas id="chartServices"></canvas></div>
+        </div>
+      </div>
+
+      <div class="charts-row-2">
+        <div class="card">
+          <div class="card-title"><span class="icon">🖥️</span> 主机风险地图</div>
+          <div class="host-map" id="hostMap">
+            <div class="empty-state" style="padding:30px">
+              <p style="color:var(--text-muted)">等待扫描数据...</p>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon">📈</span> 操作系统分布</div>
+          <div class="chart-canvas-wrap"><canvas id="chartOS"></canvas></div>
+        </div>
+      </div>
+
+      <div class="charts-row-3">
+        <div class="card">
+          <div class="card-title"><span class="icon">🔴</span> 高危端口暴露</div>
+          <div id="riskPorts" style="padding:8px; font-family:'JetBrains Mono',monospace; font-size:0.8rem;">
+            <div class="empty-state" style="padding:20px"><p style="color:var(--text-muted)">暂无数据</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon">🌐</span> Web 服务分布</div>
+          <div class="chart-canvas-wrap"><canvas id="chartWeb"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon">📡</span> 扫描实时日志</div>
+          <div class="live-log" id="cockpitLog" style="height:240px;">
+            <div class="log-entry"><span class="log-info">等待扫描启动...</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════ 全局状态 ═══════ */
+const state = {
+  ws: null,
+  scanning: false,
+  results: {},
+  summary: null,
+  charts: {}
+};
+
+const API_BASE = window.location.origin;
+
+/* ═══════ 页面切换 ═══════ */
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelector(`[data-page="${page}"]`).classList.add('active');
+  if (page === 'cockpit') updateCockpitTime();
+}
+
+/* ═══════ WebSocket 连接 ═══════ */
+function connectWS() {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/ws`;
+  state.ws = new WebSocket(wsUrl);
+
+  state.ws.onopen = () => {
+    addLog('info', 'WebSocket 连接已建立');
+  };
+
+  state.ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    handleWSMessage(data);
+  };
+
+  state.ws.onclose = () => {
+    addLog('warn', 'WebSocket 断开，3秒后重连...');
+    setTimeout(connectWS, 3000);
+  };
+
+  state.ws.onerror = () => {};
+}
+
+function handleWSMessage(data) {
+  switch(data.type) {
+    case 'scan_start':
+      state.scanning = true;
+      updateUI();
+      addLog('info', `扫描任务已启动: ${data.task.task_id}`);
+      break;
+
+    case 'phase':
+      const phaseEl = document.getElementById('scanPhase');
+      const phaseText = document.getElementById('phaseText');
+      phaseEl.style.display = 'flex';
+      phaseText.textContent = data.message;
+      addLog('info', data.message);
+      break;
+
+    case 'progress':
+      updateProgress(data.task);
+      break;
+
+    case 'port_found':
+      addLog('find', `[+] ${data.ip}:${data.port.port} → ${data.port.service} ${data.port.version}`);
+      addCockpitLog('find', `${data.ip}:${data.port.port} ${data.port.service}`);
+      break;
+
+    case 'discovery_done':
+      addLog('info', `主机发现完成: ${data.alive_count} 台存活`);
+      break;
+
+    case 'scan_complete':
+      state.scanning = false;
+      state.summary = data.summary;
+      updateUI();
+      updateProgress(data.task);
+      addLog('info', `✅ 扫描完成！发现 ${data.summary.total_open_ports} 个开放端口`);
+      showToast('扫描完成', 'success');
+      if (data.results) state.results = data.results;
+      refreshResults();
+      refreshCockpit();
+      break;
+
+    case 'existing_results':
+      state.results = data.results;
+      refreshResults();
+      refreshCockpit();
+      break;
+
+    case 'scan_status':
+      if (data.task) {
+        state.scanning = data.task.status === 'running';
+        updateProgress(data.task);
+        updateUI();
+      }
+      break;
+  }
+}
+
+/* ═══════ 扫描控制 ═══════ */
+async function startScan() {
+  const targets = document.getElementById('targetInput').value.trim();
+  const ports = document.getElementById('portInput').value.trim();
+  if (!targets || !ports) return showToast('请填写目标和端口', 'error');
+
+  try {
+    const res = await fetch(`${API_BASE}/api/scan/start`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({targets, ports})
+    });
+    const data = await res.json();
+    state.scanning = true;
+    updateUI();
+    showToast('扫描已启动（多线程模式）', 'info');
+    document.getElementById('scanProgress').classList.add('active');
+    document.getElementById('scanLine').classList.add('active');
+  } catch(e) {
+    showToast('启动失败: ' + e.message, 'error');
+  }
+}
+
+async function stopScan() {
+  await fetch(`${API_BASE}/api/scan/stop`, {method: 'POST'});
+  state.scanning = false;
+  updateUI();
+  showToast('扫描已停止', 'info');
+  document.getElementById('scanLine').classList.remove('active');
+}
+
+async function pauseScan() {
+  await fetch(`${API_BASE}/api/scan/pause`, {method: 'POST'});
+  document.getElementById('btnPause').style.display = 'none';
+  document.getElementById('btnResume').style.display = 'inline-flex';
+  showToast('扫描已暂停', 'info');
+}
+
+async function resumeScan() {
+  await fetch(`${API_BASE}/api/scan/resume`, {method: 'POST'});
+  document.getElementById('btnPause').style.display = 'inline-flex';
+  document.getElementById('btnResume').style.display = 'none';
+  showToast('扫描已继续', 'info');
+}
+
+/* ═══════ UI 更新 ═══════ */
+function updateUI() {
+  const btnStart = document.getElementById('btnStart');
+  const btnPause = document.getElementById('btnPause');
+  const btnStop = document.getElementById('btnStop');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+
+  if (state.scanning) {
+    btnStart.disabled = true;
+    btnPause.disabled = false;
+    btnStop.disabled = false;
+    statusDot.className = 'dot scanning';
+    statusText.textContent = '扫描中';
+  } else {
+    btnStart.disabled = false;
+    btnPause.disabled = true;
+    btnStop.disabled = true;
+    statusDot.className = 'dot';
+    statusText.textContent = '就绪';
+    document.getElementById('scanLine').classList.remove('active');
+  }
+}
+
+function updateProgress(task) {
+  const pct = Math.min(task.progress || 0, 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressPercent').textContent = pct.toFixed(1) + '%';
+  document.getElementById('progressDetail').textContent =
+    `主机 ${task.scanned_hosts}/${task.total_hosts} | 端口 ${task.scanned_ports}/${task.total_ports} | 发现 ${task.found_count}`;
+}
+
+/* ═══════ 结果表格 ═══════ */
+let allResults = [];
+
+async function refreshResults() {
+  try {
+    const res = await fetch(`${API_BASE}/api/results`);
+    state.results = await res.json();
+  } catch(e) {}
+
+  allResults = [];
+  for (const [ip, host] of Object.entries(state.results)) {
+    if (host.open_ports && host.open_ports.length > 0) {
+      for (const p of host.open_ports) {
+        allResults.push({
+          ip,
+          hostname: host.hostname || '-',
+          port: p.port,
+          service: p.service || 'unknown',
+          version: p.version || '-',
+          banner: p.banner ? p.banner.substring(0, 80) : '-'
+        });
+      }
+    }
+  }
+
+  renderResults(allResults);
+  document.getElementById('emptyResults').style.display = allResults.length ? 'none' : 'block';
+}
+
+function renderResults(data) {
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = '';
+  data.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.className = 'port-row-enter';
+    tr.style.animationDelay = `${Math.min(i * 20, 500)}ms`;
+    tr.innerHTML = `
+      <td>${r.ip}</td>
+      <td>${r.hostname}</td>
+      <td style="color:var(--accent-cyan);font-weight:600">${r.port}</td>
+      <td>${serviceBadge(r.service)}</td>
+      <td style="color:var(--text-secondary)">${escapeHtml(r.version)}</td>
+      <td style="color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.banner)}">${escapeHtml(r.banner)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function serviceBadge(service) {
+  const categories = {
+    web: ['http', 'https', 'http-proxy', 'https-alt'],
+    db: ['mysql', 'postgresql', 'mongodb', 'redis', 'mssql', 'oracle', 'memcached', 'elasticsearch'],
+    mail: ['smtp', 'pop3', 'imap', 'imaps', 'pop3s'],
+    remote: ['ssh', 'telnet', 'vnc', 'ms-wbt-server', 'rdp'],
+  };
+  let cat = 'other';
+  for (const [c, services] of Object.entries(categories)) {
+    if (services.includes(service)) { cat = c; break; }
+  }
+  const labels = {web:'🌐 Web', db:'🗄️ 数据库', mail:'📧 邮件', remote:'🔐 远程', other:'⚙️ 其他'};
+  return `<span class="service-badge ${cat}">${labels[cat]} ${service}</span>`;
+}
+
+function filterResults() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  if (!q) { renderResults(allResults); return; }
+  const filtered = allResults.filter(r =>
+    r.ip.includes(q) || String(r.port).includes(q) || r.service.includes(q) || r.version.toLowerCase().includes(q)
+  );
+  renderResults(filtered);
+}
+
+/* ═══════ 导出 ═══════ */
+function exportCSV() {
+  window.open(`${API_BASE}/api/export/csv`, '_blank');
+  showToast('CSV 导出已开始下载', 'success');
+}
+
+function exportJSON() {
+  window.open(`${API_BASE}/api/export/json`, '_blank');
+  showToast('JSON 导出已开始下载', 'success');
+}
+
+/* ═══════ 驾驶舱 ═══════ */
+async function refreshCockpit() {
+  try {
+    const res = await fetch(`${API_BASE}/api/summary`);
+    state.summary = await res.json();
+  } catch(e) {}
+
+  if (!state.summary) return;
+  const s = state.summary;
+
+  // 统计卡片
+  animateNumber('statHosts', s.total_hosts);
+  animateNumber('statPorts', s.total_open_ports);
+  animateNumber('statServices', s.top_services.length);
+  if (s.thread_count) document.getElementById('statThreads').textContent = s.thread_count;
+  document.getElementById('statDuration').textContent = s.scan_duration ? s.scan_duration.toFixed(1) + 's' : '0s';
+
+  // 端口柱状图
+  renderPortsChart(s.top_ports);
+
+  // 服务饼图
+  renderServicesChart(s.top_services);
+
+  // OS 分布
+  renderOSChart(s.os_distribution);
+
+  // Web 服务
+  renderWebChart(s.top_services);
+
+  // 主机地图
+  renderHostMap();
+
+  // 高危端口
+  renderRiskPorts(s.top_ports);
+}
+
+function animateNumber(id, target) {
+  const el = document.getElementById(id);
+  const current = parseInt(el.textContent) || 0;
+  const diff = target - current;
+  if (diff === 0) return;
+  const steps = 30;
+  let step = 0;
+  const interval = setInterval(() => {
+    step++;
+    el.textContent = Math.round(current + (diff * step / steps));
+    if (step >= steps) {
+      el.textContent = target;
+      clearInterval(interval);
+    }
+  }, 20);
+}
+
+function renderPortsChart(topPorts) {
+  const ctx = document.getElementById('chartPorts').getContext('2d');
+  if (state.charts.ports) state.charts.ports.destroy();
+
+  state.charts.ports = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: topPorts.map(p => p.port),
+      datasets: [{
+        label: '出现次数',
+        data: topPorts.map(p => p.count),
+        backgroundColor: topPorts.map((_, i) => {
+          const colors = ['#00d4ff', '#00ff88', '#ff8c00', '#a855f7', '#ff3860'];
+          return colors[i % colors.length] + '66';
+        }),
+        borderColor: topPorts.map((_, i) => {
+          const colors = ['#00d4ff', '#00ff88', '#ff8c00', '#a855f7', '#ff3860'];
+          return colors[i % colors.length];
+        }),
+        borderWidth: 1,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          ticks: { color: '#7a8bb5', font: { family: 'JetBrains Mono', size: 10 } },
+          grid: { color: '#1a274433' }
+        },
+        y: {
+          ticks: { color: '#7a8bb5', font: { family: 'JetBrains Mono' } },
+          grid: { color: '#1a274433' }
+        }
+      }
+    }
+  });
+}
+
+function renderServicesChart(topServices) {
+  const ctx = document.getElementById('chartServices').getContext('2d');
+  if (state.charts.services) state.charts.services.destroy();
+
+  const colors = ['#00d4ff', '#00ff88', '#ff8c00', '#a855f7', '#ff3860', '#facc15', '#06b6d4', '#ec4899'];
+
+  state.charts.services = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: topServices.map(s => s.service),
+      datasets: [{
+        data: topServices.map(s => s.count),
+        backgroundColor: colors.slice(0, topServices.length).map(c => c + 'cc'),
+        borderColor: colors.slice(0, topServices.length),
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#7a8bb5',
+            font: { size: 10 },
+            padding: 8,
+            usePointStyle: true,
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderOSChart(osDist) {
+  const ctx = document.getElementById('chartOS').getContext('2d');
+  if (state.charts.os) state.charts.os.destroy();
+
+  const labels = Object.keys(osDist);
+  const values = Object.values(osDist);
+
+  state.charts.os = new Chart(ctx, {
+    type: 'polarArea',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: ['#00d4ff88', '#00ff8888', '#ff8c0088', '#a855f788'],
+        borderColor: ['#00d4ff', '#00ff88', '#ff8c00', '#a855f7'],
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#7a8bb5', font: { size: 10 }, usePointStyle: true, padding: 8 }
+        }
+      },
+      scales: {
+        r: {
+          ticks: { display: false },
+          grid: { color: '#1a274466' }
+        }
+      }
+    }
+  });
+}
+
+function renderWebChart(topServices) {
+  const ctx = document.getElementById('chartWeb').getContext('2d');
+  if (state.charts.web) state.charts.web.destroy();
+
+  const webServices = topServices.filter(s =>
+    ['http', 'https', 'http-proxy', 'https-alt'].includes(s.service)
+  );
+
+  state.charts.web = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: webServices.map(s => s.service),
+      datasets: [{
+        label: '数量',
+        data: webServices.map(s => s.count),
+        backgroundColor: '#00d4ff22',
+        borderColor: '#00d4ff',
+        borderWidth: 2,
+        pointBackgroundColor: '#00d4ff',
+        pointBorderColor: '#0f1a36',
+        pointBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        r: {
+          ticks: { color: '#7a8bb5', backdropColor: 'transparent', font: { size: 10 } },
+          grid: { color: '#1a274466' },
+          pointLabels: { color: '#7a8bb5', font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+function renderHostMap() {
+  const map = document.getElementById('hostMap');
+  map.innerHTML = '';
+  const hosts = Object.entries(state.results);
+  if (!hosts.length) {
+    map.innerHTML = '<div class="empty-state" style="padding:30px"><p style="color:var(--text-muted)">等待扫描数据...</p></div>';
+    return;
+  }
+
+  hosts.forEach(([ip, host], i) => {
+    if (!host.open_ports || !host.open_ports.length) return;
+    const node = document.createElement('div');
+    node.className = 'host-node';
+    node.style.animationDelay = `${i * 50}ms`;
+    const lastOctet = ip.split('.').pop();
+    const osClass = host.os_hint === 'Windows' ? 'win' : host.os_hint === 'Linux/Unix' ? 'linux' : '';
+    const osIcon = host.os_hint === 'Windows' ? '🪟' : host.os_hint === 'Linux/Unix' ? '🐧' : '';
+    node.innerHTML = `
+      <span class="node-os ${osClass}">${osIcon}</span>
+      <span class="node-ip">.${lastOctet}</span>
+      <span class="node-count">${host.open_ports.length} 端口</span>
+    `;
+    node.addEventListener('mouseenter', (e) => showHostTooltip(e, ip, host));
+    node.addEventListener('mouseleave', hideHostTooltip);
+    map.appendChild(node);
+  });
+}
+
+function renderRiskPorts(topPorts) {
+  const riskEl = document.getElementById('riskPorts');
+  const highRisk = [21, 23, 445, 3389, 6379, 27017, 9200, 5900, 11211];
+  const found = topPorts.filter(p => highRisk.includes(p.port));
+
+  if (!found.length) {
+    riskEl.innerHTML = '<div style="color:var(--accent-green);padding:12px;text-align:center">✅ 未发现高危端口暴露</div>';
+    return;
+  }
+
+  riskEl.innerHTML = found.map(p => `
+    <div style="display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border);">
+      <span style="color:var(--accent-red)">⚠️ 端口 ${p.port}</span>
+      <span style="color:var(--text-secondary)">${p.count} 台主机</span>
+    </div>
+  `).join('');
+}
+
+/* ═══════ Tooltip ═══════ */
+function showHostTooltip(e, ip, host) {
+  const tt = document.getElementById('hostTooltip');
+  const ports = host.open_ports.map(p => `${p.port}/${p.service}`).join(', ');
+  tt.innerHTML = `
+    <div class="tt-ip">${ip}</div>
+    <div class="tt-row"><span>主机名</span><span>${host.hostname || '-'}</span></div>
+    <div class="tt-row"><span>操作系统</span><span>${host.os_hint || '未知'}</span></div>
+    <div class="tt-row"><span>开放端口</span><span>${host.open_ports.length}</span></div>
+    <div class="tt-ports">${ports}</div>
+  `;
+  tt.style.left = e.clientX + 12 + 'px';
+  tt.style.top = e.clientY + 12 + 'px';
+  tt.classList.add('visible');
+}
+
+function hideHostTooltip() {
+  document.getElementById('hostTooltip').classList.remove('visible');
+}
+
+/* ═══════ 日志 ═══════ */
+function addLog(type, message) {
+  const log = document.getElementById('liveLog');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const time = new Date().toLocaleTimeString();
+  const cls = type === 'find' ? 'log-find' : type === 'warn' ? 'log-warn' : 'log-info';
+  entry.innerHTML = `<span class="log-time">${time}</span><span class="${cls}">${message}</span>`;
+  log.insertBefore(entry, log.firstChild);
+  // 限制日志数量防止内存溢出
+  while (log.children.length > 200) log.removeChild(log.lastChild);
+}
+
+function addCockpitLog(type, message) {
+  const log = document.getElementById('cockpitLog');
+  if (!log) return;
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const time = new Date().toLocaleTimeString();
+  const cls = type === 'find' ? 'log-find' : 'log-info';
+  entry.innerHTML = `<span class="log-time">${time}</span><span class="${cls}">${message}</span>`;
+  log.insertBefore(entry, log.firstChild);
+  while (log.children.length > 100) log.removeChild(log.lastChild);
+}
+
+/* ═══════ Toast ═══════ */
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icons = {success: '✅', info: 'ℹ️', error: '❌', warn: '⚠️'};
+  toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+/* ═══════ 工具函数 ═══════ */
+function setTarget(v) { document.getElementById('targetInput').value = v; }
+function setPorts(v) { document.getElementById('portInput').value = v; }
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateCockpitTime() {
+  const el = document.getElementById('cockpitTime');
+  if (el) {
+    const now = new Date();
+    el.textContent = now.toLocaleString('zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    });
+  }
+  if (document.getElementById('page-cockpit').classList.contains('active')) {
+    requestAnimationFrame(updateCockpitTime);
+  }
+}
+
+/* ═══════ Chart.js 全局配置 ═══════ */
+Chart.defaults.color = '#7a8bb5';
+Chart.defaults.borderColor = '#1a274466';
+Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans SC', sans-serif";
+
+/* ═══════ 初始化 ═══════ */
+connectWS();
+
+// 键盘快捷键
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.activeElement.id === 'portInput') {
+    startScan();
+  }
+});
+</script>
+</body>
+</html>
