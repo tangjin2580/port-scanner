@@ -1080,6 +1080,13 @@ tr:hover {
               <option value="hybrid">混合模式 — TCP + 常见UDP (DNS/SNMP/NTP)</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>🏠 场景模式</label>
+            <select class="form-input" id="sceneMode" style="cursor:pointer">
+              <option value="enterprise">🏢 企业安全 — 高危端口告警</option>
+              <option value="home">🏠 家庭局域网 — 关闭告警，识别设备</option>
+            </select>
+          </div>
         </div>
 
         <div class="scan-actions">
@@ -1243,6 +1250,7 @@ const state = {
   scanning: false,
   results: {},
   summary: null,
+  scene: 'enterprise',
   charts: {}
 };
 
@@ -1316,14 +1324,18 @@ function handleWSMessage(data) {
     case 'scan_complete':
       state.scanning = false;
       state.summary = data.summary;
+      state.scene = data.summary.scene || 'enterprise';
       updateUI();
       updateProgress(data.task);
       const riskCount = (data.summary.risk_alerts || []).length;
+      const isHome = state.scene === 'home';
       addLog('info', `✅ 扫描完成！发现 ${data.summary.total_open_ports} 个开放端口`);
-      if (riskCount > 0) {
+      if (!isHome && riskCount > 0) {
         addLog('warn', `⚠️ 发现 ${riskCount} 个高危端口暴露！`);
+        showToast(`扫描完成，发现 ${riskCount} 个风险`, 'error');
+      } else {
+        showToast('扫描完成', 'success');
       }
-      showToast(riskCount > 0 ? `扫描完成，发现 ${riskCount} 个风险` : '扫描完成', riskCount > 0 ? 'error' : 'success');
       if (data.results) state.results = data.results;
       refreshResults();
       refreshCockpit();
@@ -1350,19 +1362,22 @@ async function startScan() {
   const targets = document.getElementById('targetInput').value.trim();
   const ports = document.getElementById('portInput').value.trim();
   const mode = document.getElementById('scanMode').value;
+  const scene = document.getElementById('sceneMode').value;
   if (!targets || !ports) return showToast('请填写目标和端口', 'error');
 
   try {
     const res = await fetch(`${API_BASE}/api/scan/start`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({targets, ports, mode})
+      body: JSON.stringify({targets, ports, mode, scene})
     });
     const data = await res.json();
     if (data.error) return showToast(data.error, 'error');
     state.scanning = true;
     updateUI();
-    showToast(`扫描已启动（${mode === 'hybrid' ? '混合模式' : 'TCP模式'}，${data.thread_count}线程）`, 'info');
+    const modeLabel = mode === 'hybrid' ? '混合模式' : 'TCP模式';
+    const sceneLabel = scene === 'home' ? '家庭局域网' : '企业安全';
+    showToast(`扫描已启动（${modeLabel} / ${sceneLabel}，${data.thread_count}线程）`, 'info');
     document.getElementById('scanProgress').classList.add('active');
     document.getElementById('scanLine').classList.add('active');
   } catch(e) {
@@ -1742,6 +1757,38 @@ function renderHostMap() {
 
 function renderRiskPorts(topPorts) {
   const riskEl = document.getElementById('riskPorts');
+  const isHome = (state.scene || document.getElementById('sceneMode')?.value) === 'home';
+
+  // 家庭局域网模式：显示设备识别
+  if (isHome) {
+    const deviceMap = {
+      53: 'DNS 服务器 / 路由器', 80: 'Web 管理界面', 443: 'HTTPS 管理界面',
+      445: 'NAS / SMB 文件共享', 548: 'AirPort / AFP', 5000: 'Synology / UPnP',
+      5001: 'Synology DSM', 5050: 'Web 管理', 5353: 'mDNS / Bonjour',
+      8080: 'Web 管理面板', 8443: 'HTTPS 管理面板', 9000: 'Portainer / IPTV',
+      9090: 'Web 控制台', 25565: 'Minecraft 服务器', 1900: 'DLNA / UPnP',
+      3005: 'AirPlay', 5900: 'VNC 远程桌面', 3389: '远程桌面',
+      22: 'SSH 管理', 23: 'Telnet 管理（路由器）', 139: 'NetBIOS / 文件共享',
+      3306: 'MySQL 数据库', 5432: 'PostgreSQL 数据库', 6379: 'Redis 缓存',
+    };
+    const found = topPorts.filter(p => deviceMap[p.port]);
+    if (!found.length) {
+      riskEl.innerHTML = '<div style="color:var(--accent-green);padding:12px;text-align:center">🏠 家庭网络 — 未发现常见设备端口</div>';
+      return;
+    }
+    riskEl.innerHTML = found.map(p => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--border);">
+        <div>
+          <span style="color:var(--accent-cyan);font-weight:600">🔌 端口 ${p.port}</span>
+          <span style="color:var(--text-secondary);font-size:0.75rem;margin-left:8px">${deviceMap[p.port]}</span>
+        </div>
+        <span style="color:var(--text-muted)">${p.count} 台</span>
+      </div>
+    `).join('');
+    return;
+  }
+
+  // 企业安全模式：高危端口告警
   const highRisk = [21, 23, 445, 3389, 6379, 27017, 9200, 5900, 11211, 2375, 5000];
   const riskDesc = {21:'FTP匿名访问',23:'Telnet明文',445:'SMB漏洞',3389:'RDP爆破',6379:'Redis未授权',27017:'MongoDB未授权',9200:'ES未授权',5900:'VNC弱口令',11211:'Memcached反射',2375:'Docker未授权',5000:'开发服务暴露'};
   const found = topPorts.filter(p => highRisk.includes(p.port));

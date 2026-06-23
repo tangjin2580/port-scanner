@@ -478,7 +478,7 @@ class PortScanner:
     # ──────────────── 扫描主流程 ────────────────
 
     async def scan(self, targets_str: str, ports_str: str, task_id: str,
-                   scan_mode: str = "tcp"):
+                   scan_mode: str = "tcp", scene: str = "enterprise"):
         """
         执行完整扫描流程
 
@@ -505,6 +505,7 @@ class PortScanner:
             self._found_counter = 0
             self._stop_event.clear()
             self._pause_event.set()
+            self._current_scene = scene
 
         await self._broadcast_ws({
             "type": "scan_start",
@@ -673,34 +674,38 @@ class PortScanner:
             except Exception:
                 pass
 
-        # OS 推断 + 风险评估
-        risk_alerts = []
+        # OS 推断
         for ip, host in host_infos.items():
             if not host.open_ports:
                 continue
             port_numbers = {p.port for p in host.open_ports}
-            # OS 推断
             if 445 in port_numbers or 3389 in port_numbers or 1433 in port_numbers:
                 host.os_hint = "Windows"
             elif 22 in port_numbers:
                 host.os_hint = "Linux/Unix"
-            # 风险告警
-            for p in port_numbers:
-                if p in HIGH_RISK_PORTS:
-                    risk_alerts.append({
-                        "ip": ip, "port": p,
-                        "risk": HIGH_RISK_PORTS[p]
-                    })
             host.last_seen = time.time()
+
+        # 风险评估（仅企业模式）
+        risk_alerts = []
+        if scene == "enterprise":
+            for ip, host in host_infos.items():
+                if not host.open_ports:
+                    continue
+                for p in (p2.port for p2 in host.open_ports):
+                    if p in HIGH_RISK_PORTS:
+                        risk_alerts.append({
+                            "ip": ip, "port": p,
+                            "risk": HIGH_RISK_PORTS[p]
+                        })
 
         # 写入最终结果
         with self._lock:
             self.results = {ip: h for ip, h in host_infos.items() if h.open_ports}
 
         # 保存到历史
-        await self._finish_scan(risk_alerts=risk_alerts)
+        await self._finish_scan(risk_alerts=risk_alerts, scene=scene)
 
-    async def _finish_scan(self, risk_alerts: List[dict] = None):
+    async def _finish_scan(self, risk_alerts: List[dict] = None, scene: str = "enterprise"):
         """完成扫描"""
         with self._lock:
             if self.scan_task:
@@ -727,6 +732,7 @@ class PortScanner:
 
         summary = self._get_summary()
         summary["risk_alerts"] = risk_alerts or []
+        summary["scene"] = scene
 
         await self._broadcast_ws({
             "type": "scan_complete",
@@ -813,6 +819,8 @@ class PortScanner:
         if self.scan_task and self.scan_task.end_time and self.scan_task.start_time:
             duration = self.scan_task.end_time - self.scan_task.start_time
 
+        scene = getattr(self, '_current_scene', 'enterprise')
+
         return {
             "total_hosts": total_hosts,
             "total_open_ports": total_ports,
@@ -822,6 +830,7 @@ class PortScanner:
             "risk_summary": risk_summary,
             "scan_duration": duration,
             "thread_count": self.thread_count,
+            "scene": scene,
         }
 
     def get_results(self) -> dict:
@@ -881,19 +890,21 @@ async def api_start_scan(request):
     targets = data.get('targets', '127.0.0.1')
     ports = data.get('ports', '1-1024')
     scan_mode = data.get('mode', 'tcp')  # tcp | hybrid
+    scene = data.get('scene', 'enterprise')  # enterprise | home
     task_id = f"scan_{int(time.time() * 1000)}"
 
     # 防止重复扫描
     if scanner.scan_task and scanner.scan_task.status in ("running", "paused"):
         return web.json_response({"error": "已有扫描任务进行中"}, status=409)
 
-    asyncio.create_task(scanner.scan(targets, ports, task_id, scan_mode))
-    logger.info(f"扫描已启动: {task_id}, 目标={targets}, 端口={ports}, 模式={scan_mode}")
+    asyncio.create_task(scanner.scan(targets, ports, task_id, scan_mode, scene))
+    logger.info(f"扫描已启动: {task_id}, 目标={targets}, 端口={ports}, 模式={scan_mode}, 场景={scene}")
     return web.json_response({
         "task_id": task_id,
         "status": "started",
         "thread_count": scanner.thread_count,
-        "scan_mode": scan_mode
+        "scan_mode": scan_mode,
+        "scene": scene
     })
 
 
