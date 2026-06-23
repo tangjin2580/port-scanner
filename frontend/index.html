@@ -1073,6 +1073,13 @@ tr:hover {
               <button class="preset-btn" onclick="setPorts('1-10000')">Top 10K</button>
             </div>
           </div>
+          <div class="form-group">
+            <label>⚙️ 扫描模式</label>
+            <select class="form-input" id="scanMode" style="cursor:pointer">
+              <option value="tcp">TCP Connect — 快速精准</option>
+              <option value="hybrid">混合模式 — TCP + 常见UDP (DNS/SNMP/NTP)</option>
+            </select>
+          </div>
         </div>
 
         <div class="scan-actions">
@@ -1302,13 +1309,21 @@ function handleWSMessage(data) {
       addLog('info', `主机发现完成: ${data.alive_count} 台存活`);
       break;
 
+    case 'host_found':
+      addLog('info', `发现存活主机: ${data.ip}`);
+      break;
+
     case 'scan_complete':
       state.scanning = false;
       state.summary = data.summary;
       updateUI();
       updateProgress(data.task);
+      const riskCount = (data.summary.risk_alerts || []).length;
       addLog('info', `✅ 扫描完成！发现 ${data.summary.total_open_ports} 个开放端口`);
-      showToast('扫描完成', 'success');
+      if (riskCount > 0) {
+        addLog('warn', `⚠️ 发现 ${riskCount} 个高危端口暴露！`);
+      }
+      showToast(riskCount > 0 ? `扫描完成，发现 ${riskCount} 个风险` : '扫描完成', riskCount > 0 ? 'error' : 'success');
       if (data.results) state.results = data.results;
       refreshResults();
       refreshCockpit();
@@ -1334,18 +1349,20 @@ function handleWSMessage(data) {
 async function startScan() {
   const targets = document.getElementById('targetInput').value.trim();
   const ports = document.getElementById('portInput').value.trim();
+  const mode = document.getElementById('scanMode').value;
   if (!targets || !ports) return showToast('请填写目标和端口', 'error');
 
   try {
     const res = await fetch(`${API_BASE}/api/scan/start`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({targets, ports})
+      body: JSON.stringify({targets, ports, mode})
     });
     const data = await res.json();
+    if (data.error) return showToast(data.error, 'error');
     state.scanning = true;
     updateUI();
-    showToast('扫描已启动（多线程模式）', 'info');
+    showToast(`扫描已启动（${mode === 'hybrid' ? '混合模式' : 'TCP模式'}，${data.thread_count}线程）`, 'info');
     document.getElementById('scanProgress').classList.add('active');
     document.getElementById('scanLine').classList.add('active');
   } catch(e) {
@@ -1725,7 +1742,8 @@ function renderHostMap() {
 
 function renderRiskPorts(topPorts) {
   const riskEl = document.getElementById('riskPorts');
-  const highRisk = [21, 23, 445, 3389, 6379, 27017, 9200, 5900, 11211];
+  const highRisk = [21, 23, 445, 3389, 6379, 27017, 9200, 5900, 11211, 2375, 5000];
+  const riskDesc = {21:'FTP匿名访问',23:'Telnet明文',445:'SMB漏洞',3389:'RDP爆破',6379:'Redis未授权',27017:'MongoDB未授权',9200:'ES未授权',5900:'VNC弱口令',11211:'Memcached反射',2375:'Docker未授权',5000:'开发服务暴露'};
   const found = topPorts.filter(p => highRisk.includes(p.port));
 
   if (!found.length) {
@@ -1734,9 +1752,12 @@ function renderRiskPorts(topPorts) {
   }
 
   riskEl.innerHTML = found.map(p => `
-    <div style="display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border);">
-      <span style="color:var(--accent-red)">⚠️ 端口 ${p.port}</span>
-      <span style="color:var(--text-secondary)">${p.count} 台主机</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--border);">
+      <div>
+        <span style="color:var(--accent-red);font-weight:600">⚠️ 端口 ${p.port}</span>
+        <span style="color:var(--text-muted);font-size:0.7rem;margin-left:8px">${riskDesc[p.port] || '高风险'}</span>
+      </div>
+      <span style="color:var(--text-secondary)">${p.count} 台</span>
     </div>
   `).join('');
 }
