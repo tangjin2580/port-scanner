@@ -654,6 +654,267 @@ tr:hover {
 .log-link:hover { opacity: 1; text-shadow: 0 0 6px var(--accent-cyan); }
 .ip-cell { cursor: default; }
 
+/* ═══════ 书签页 ═══════ */
+.bookmarks-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.bookmarks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.bookmarks-header h2 {
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+.bookmarks-header h2 span {
+  background: var(--gradient-cyan);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.bookmarks-subtitle {
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-size: 0.85rem;
+}
+.bookmarks-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bookmarks-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+/* 设备分组卡片 */
+.device-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: var(--transition);
+}
+.device-card:hover {
+  border-color: var(--border-glow);
+  box-shadow: var(--shadow-glow);
+}
+.device-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(0,212,255,0.05), transparent);
+}
+.device-card-header .device-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.device-card-header .device-icon {
+  font-size: 1.4rem;
+}
+.device-card-header .device-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+.device-card-header .device-ip {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.device-card-header .device-os {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--accent-cyan-dim);
+  color: var(--accent-cyan);
+}
+.device-card-header .btn-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+.device-card-header .btn-remove:hover {
+  color: var(--accent-red);
+  background: rgba(255,56,96,0.1);
+}
+.device-card-body {
+  padding: 8px 0;
+}
+
+/* 服务行 */
+.service-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 18px;
+  gap: 12px;
+  transition: var(--transition);
+  border-left: 3px solid transparent;
+}
+.service-row:hover {
+  background: rgba(0,212,255,0.04);
+  border-left-color: var(--accent-cyan);
+}
+.service-row .svc-icon {
+  font-size: 1.2rem;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.service-row .svc-info {
+  flex: 1;
+  min-width: 0;
+}
+.service-row .svc-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.service-row .svc-detail {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.service-row .svc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.svc-link.web {
+  background: var(--accent-cyan-dim);
+  color: var(--accent-cyan);
+}
+.svc-link.web:hover {
+  background: var(--accent-cyan);
+  color: var(--bg-deep);
+}
+.svc-link.ssh {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+}
+.svc-link.ssh:hover {
+  background: var(--accent-green);
+  color: var(--bg-deep);
+}
+.svc-link.other {
+  background: var(--accent-orange-dim);
+  color: var(--accent-orange);
+}
+.svc-link.other:hover {
+  background: var(--accent-orange);
+  color: var(--bg-deep);
+}
+.service-row .svc-del {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 4px;
+  opacity: 0;
+  transition: var(--transition);
+}
+.service-row:hover .svc-del { opacity: 1; }
+.service-row .svc-del:hover { color: var(--accent-red); }
+
+/* 结果表格保存按钮 */
+.btn-bm {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.4;
+  transition: var(--transition);
+}
+.btn-bm:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+/* 手动添加弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+.modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-box h3 {
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+}
+.modal-box .form-group {
+  margin-bottom: 14px;
+}
+.modal-box label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.modal-box input, .modal-box select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+}
+.modal-box input:focus, .modal-box select:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+}
+.modal-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
 /* ═══════ 驾驶舱 / 大屏 ═══════ */
 .cockpit {
   max-width: 1600px;
@@ -1061,6 +1322,7 @@ tr:hover {
     <button class="nav-tab active" data-page="scan" onclick="switchPage('scan')">🎯 扫描</button>
     <button class="nav-tab" data-page="results" onclick="switchPage('results')">📋 结果</button>
     <button class="nav-tab" data-page="cockpit" onclick="switchPage('cockpit')">🛸 驾驶舱</button>
+    <button class="nav-tab" data-page="bookmarks" onclick="switchPage('bookmarks')">📌 书签</button>
   </div>
   <div class="nav-status">
     <div class="dot" id="statusDot"></div>
@@ -1179,6 +1441,7 @@ tr:hover {
               <th>服务</th>
               <th>版本</th>
               <th>Banner</th>
+              <th style="width:50px"></th>
             </tr>
           </thead>
           <tbody id="resultsBody">
@@ -1271,7 +1534,65 @@ tr:hover {
             <div class="log-entry"><span class="log-info">等待扫描启动...</span></div>
           </div>
         </div>
+          </div>
+  </div>
+
+  <!-- ===== 书签页 ===== -->
+  <div class="page" id="page-bookmarks">
+    <div class="bookmarks-page">
+      <div class="bookmarks-header">
+        <div>
+          <h2>📌 我的服务<span>书签</span></h2>
+          <p class="bookmarks-subtitle">保存常用服务入口，再也不用记端口号</p>
+        </div>
+        <div class="bookmarks-actions">
+          <button class="btn btn-secondary" onclick="saveAllFromResults()" style="font-size:0.8rem;padding:8px 16px">📥 从扫描结果保存全部</button>
+          <button class="btn btn-primary" onclick="showAddBookmarkModal()" style="font-size:0.8rem;padding:8px 16px">➕ 手动添加</button>
+        </div>
       </div>
+
+      <div id="bookmarksList" class="bookmarks-list">
+        <div class="empty-state" id="emptyBookmarks">
+          <div class="empty-icon">📌</div>
+          <p>暂存书签<br>扫描后保存，或手动添加你的服务</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 手动添加书签弹窗 -->
+<div class="modal-overlay" id="addBookmarkModal">
+  <div class="modal-box">
+    <h3>➕ 添加服务书签</h3>
+    <div class="form-group">
+      <label>名称（如：NAS管理面板）</label>
+      <input id="bmName" placeholder="我的服务">
+    </div>
+    <div class="form-group">
+      <label>IP 地址</label>
+      <input id="bmIP" placeholder="192.168.1.100">
+    </div>
+    <div class="form-group">
+      <label>端口</label>
+      <input id="bmPort" placeholder="5000" type="number">
+    </div>
+    <div class="form-group">
+      <label>协议</label>
+      <select id="bmProto" style="cursor:pointer">
+        <option value="http">HTTP</option>
+        <option value="https">HTTPS</option>
+        <option value="ssh">SSH</option>
+        <option value="other">其他</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>备注（可选）</label>
+      <input id="bmNote" placeholder="群晖DSM管理面板">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="hideAddBookmarkModal()">取消</button>
+      <button class="btn btn-primary" onclick="addManualBookmark()">保存</button>
     </div>
   </div>
 </div>
@@ -1517,6 +1838,7 @@ function renderResults(data) {
       <td>${serviceBadge(r.service)}</td>
       <td style="color:var(--text-secondary)">${escapeHtml(r.version)}</td>
       <td style="color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.banner)}">${escapeHtml(r.banner)}</td>
+      <td><button class="btn-bm" onclick="saveBookmark('${r.ip}',${r.port},'${r.service}','${getServiceName(r.service)}','${escapeHtml(r.version)}')" title="保存到书签">📌</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1935,6 +2257,278 @@ function showToast(message, type = 'info') {
 function setTarget(v) { document.getElementById('targetInput').value = v; }
 function setPorts(v) { document.getElementById('portInput').value = v; }
 
+/* ═══════ 书签管理 ═══════ */
+const BM_KEY = 'netscope_bookmarks';
+
+// 服务图标映射
+const SERVICE_ICONS = {
+  http: '🌐', https: '🔒', ssh: '🔐', ftp: '📁', telnet: '📟',
+  dns: '📡', smtp: '📧', pop3: '📬', imap: '📨', mysql: '🗄️',
+  postgresql: '🐘', mongodb: '🍃', redis: '🔴', mssql: '💾',
+  vnc: '🖥️', 'ms-wbt-server': '🖥️', rdp: '🖥️', smb: '📂',
+  elasticsearch: '🔍', docker: '🐳', kubernetes: '☸️',
+  mqtt: '📡', homeassistant: '🏠', jellyfin: '🎬', plex: '🎬',
+  homebridge: '🏠', esphome: '🔌', node-red: '🔴',
+  grafana: '📊', prometheus: '📈', portainer: '🐳',
+  pihole: '🛡️', nginx: '⚡', apache: '🪶',
+};
+
+// 服务友好名
+const SERVICE_NAMES = {
+  http: 'Web 服务', https: 'HTTPS 服务', ssh: 'SSH 终端', ftp: 'FTP 文件',
+  telnet: 'Telnet', dns: 'DNS 服务', smtp: 'SMTP 邮件', pop3: 'POP3 邮件',
+  imap: 'IMAP 邮件', mysql: 'MySQL 数据库', postgresql: 'PostgreSQL',
+  mongodb: 'MongoDB', redis: 'Redis 缓存', mssql: 'SQL Server',
+  vnc: 'VNC 远程', 'ms-wbt-server': '远程桌面', smb: '文件共享',
+  elasticsearch: 'Elasticsearch', 'http-proxy': 'HTTP 代理',
+};
+
+function getBookmarks() {
+  try {
+    return JSON.parse(localStorage.getItem(BM_KEY)) || {};
+  } catch { return {}; }
+}
+
+function saveBookmarks(bm) {
+  localStorage.setItem(BM_KEY, JSON.stringify(bm));
+}
+
+function getServiceIcon(service) {
+  return SERVICE_ICONS[service] || '⚙️';
+}
+
+function getServiceName(service) {
+  return SERVICE_NAMES[service] || service || '未知服务';
+}
+
+function getServiceUrl(ip, port, service) {
+  if (service === 'ssh') return `ssh://${ip}:${port}`;
+  if (service === 'vnc' || service === 'ms-wbt-server') return `vnc://${ip}:${port}`;
+  if (service === 'https' || service === 'https-alt' || port === 443 || port === 8443) {
+    return port === 443 ? `https://${ip}` : `https://${ip}:${port}`;
+  }
+  // 默认 http
+  return port === 80 ? `http://${ip}` : `http://${ip}:${port}`;
+}
+
+function getLinkType(service) {
+  const webSet = new Set(['http','https','http-proxy','https-alt','flask','django','nodejs-app']);
+  if (webSet.has(service) || service === 'https-alt') return 'web';
+  if (service === 'ssh') return 'ssh';
+  return 'other';
+}
+
+// 保存单个服务到书签
+function saveBookmark(ip, port, service, name, note) {
+  const bm = getBookmarks();
+  if (!bm[ip]) {
+    bm[ip] = {
+      hostname: '',
+      os_hint: '',
+      services: []
+    };
+  }
+  // 去重
+  const exists = bm[ip].services.find(s => s.port === port);
+  if (exists) {
+    exists.service = service;
+    exists.name = name || exists.name;
+    exists.note = note || exists.note;
+  } else {
+    bm[ip].services.push({
+      port,
+      service,
+      name: name || getServiceName(service),
+      note: note || ''
+    });
+  }
+  // 按端口号排序
+  bm[ip].services.sort((a, b) => a.port - b.port);
+  saveBookmarks(bm);
+  renderBookmarks();
+}
+
+// 删除设备
+function removeBookmarkDevice(ip) {
+  const bm = getBookmarks();
+  delete bm[ip];
+  saveBookmarks(bm);
+  renderBookmarks();
+  showToast(`已删除 ${ip} 的所有书签`, 'info');
+}
+
+// 删除单个服务
+function removeBookmarkService(ip, port) {
+  const bm = getBookmarks();
+  if (bm[ip]) {
+    bm[ip].services = bm[ip].services.filter(s => s.port !== port);
+    if (!bm[ip].services.length) delete bm[ip];
+    saveBookmarks(bm);
+    renderBookmarks();
+    showToast(`已删除端口 ${port}`, 'info');
+  }
+}
+
+// 从扫描结果保存全部
+function saveAllFromResults() {
+  const results = state.results;
+  if (!results || !Object.keys(results).length) {
+    return showToast('暂无扫描结果，请先扫描', 'error');
+  }
+  const bm = getBookmarks();
+  let count = 0;
+  for (const [ip, host] of Object.entries(results)) {
+    if (!host.open_ports || !host.open_ports.length) continue;
+    if (!bm[ip]) {
+      bm[ip] = {
+        hostname: host.hostname || '',
+        os_hint: host.os_hint || '',
+        services: []
+      };
+    } else {
+      if (host.hostname) bm[ip].hostname = host.hostname;
+      if (host.os_hint) bm[ip].os_hint = host.os_hint;
+    }
+    for (const p of host.open_ports) {
+      const exists = bm[ip].services.find(s => s.port === p.port);
+      if (!exists) {
+        bm[ip].services.push({
+          port: p.port,
+          service: p.service || 'unknown',
+          name: getServiceName(p.service),
+          note: p.version || ''
+        });
+        count++;
+      }
+    }
+    bm[ip].services.sort((a, b) => a.port - b.port);
+  }
+  saveBookmarks(bm);
+  renderBookmarks();
+  showToast(`已保存 ${count} 个新服务到书签`, 'success');
+}
+
+// 一键打开设备所有服务
+function openAllServices(ip) {
+  const bm = getBookmarks();
+  if (!bm[ip] || !bm[ip].services.length) return;
+  const urls = bm[ip].services
+    .map(s => getServiceUrl(ip, s.port, s.service))
+    .filter(u => u.startsWith('http'));
+  if (!urls.length) return showToast('该设备无可打开的 Web 服务', 'info');
+  urls.forEach(u => window.open(u, '_blank'));
+  showToast(`已打开 ${urls.length} 个页面`, 'success');
+}
+
+// 渲染书签页面
+function renderBookmarks() {
+  const bm = getBookmarks();
+  const list = document.getElementById('bookmarksList');
+  const empty = document.getElementById('emptyBookmarks');
+  const ips = Object.keys(bm);
+
+  if (!ips.length) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    empty.style.display = '';
+    return;
+  }
+
+  empty.style.display = 'none';
+
+  // 排序：有 Web 服务的排前面
+  ips.sort((a, b) => {
+    const aWeb = bm[a].services.filter(s => getLinkType(s.service) === 'web').length;
+    const bWeb = bm[b].services.filter(s => getLinkType(s.service) === 'web').length;
+    return bWeb - aWeb;
+  });
+
+  list.innerHTML = ips.map(ip => {
+    const dev = bm[ip];
+    const osIcon = dev.os_hint === 'Windows' ? '🪟' : dev.os_hint === 'Linux/Unix' ? '🐧' : '🖥️';
+    const displayName = dev.hostname || ip;
+    const webCount = dev.services.filter(s => getLinkType(s.service) === 'web').length;
+
+    const serviceRows = dev.services.map(s => {
+      const icon = getServiceIcon(s.service);
+      const url = getServiceUrl(ip, s.port, s.service);
+      const linkType = getLinkType(s.service);
+      const linkLabel = linkType === 'web' ? '打开 ↗' : linkType === 'ssh' ? '连接' : '访问';
+      const linkCls = linkType;
+      return `
+        <div class="service-row">
+          <div class="svc-icon">${icon}</div>
+          <div class="svc-info">
+            <div class="svc-name">${escapeHtml(s.name)}</div>
+            <div class="svc-detail">${s.port}/${s.service}${s.note ? ' — ' + escapeHtml(s.note) : ''}</div>
+          </div>
+          <a href="${url}" target="_blank" rel="noopener noreferrer" class="svc-link ${linkCls}">${linkLabel}</a>
+          <button class="svc-del" onclick="removeBookmarkService('${ip}', ${s.port})" title="删除">✕</button>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-info">
+            <span class="device-icon">${osIcon}</span>
+            <div>
+              <div class="device-name">${escapeHtml(displayName)}</div>
+              <div class="device-ip">${ip}${dev.os_hint ? '' : ''}</div>
+            </div>
+            ${dev.os_hint ? `<span class="device-os">${dev.os_hint}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:4px;align-items:center">
+            ${webCount > 0 ? `<button class="svc-link web" onclick="openAllServices('${ip}')" style="font-size:0.72rem;padding:4px 10px;border:none;cursor:pointer">全部打开</button>` : ''}
+            <button class="btn-remove" onclick="removeBookmarkDevice('${ip}')" title="删除设备">🗑️</button>
+          </div>
+        </div>
+        <div class="device-card-body">
+          ${serviceRows}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// 手动添加弹窗
+function showAddBookmarkModal() {
+  document.getElementById('addBookmarkModal').classList.add('active');
+  document.getElementById('bmName').value = '';
+  document.getElementById('bmIP').value = '';
+  document.getElementById('bmPort').value = '';
+  document.getElementById('bmNote').value = '';
+  document.getElementById('bmName').focus();
+}
+
+function hideAddBookmarkModal() {
+  document.getElementById('addBookmarkModal').classList.remove('active');
+}
+
+function addManualBookmark() {
+  const name = document.getElementById('bmName').value.trim();
+  const ip = document.getElementById('bmIP').value.trim();
+  const port = parseInt(document.getElementById('bmPort').value);
+  const proto = document.getElementById('bmProto').value;
+  const note = document.getElementById('bmNote').value.trim();
+
+  if (!ip) return showToast('请填写 IP 地址', 'error');
+  if (!port || port < 1 || port > 65535) return showToast('端口范围 1-65535', 'error');
+
+  // 根据协议推导 service
+  let service = proto;
+  if (proto === 'http' && port === 80) service = 'http';
+  if (proto === 'https' && port === 443) service = 'https';
+
+  saveBookmark(ip, port, service, name || getServiceName(service), note);
+  hideAddBookmarkModal();
+  showToast(`已保存 ${ip}:${port}`, 'success');
+}
+
+// 点击弹窗外部关闭
+/* 在初始化区域绑定 */
+
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1978,6 +2572,14 @@ Chart.defaults.font.family = "'JetBrains Mono', 'Noto Sans SC', sans-serif";
 
 /* ═══════ 初始化 ═══════ */
 connectWS();
+
+// 初始化书签
+renderBookmarks();
+
+// 弹窗点击外部关闭
+document.getElementById('addBookmarkModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) hideAddBookmarkModal();
+});
 
 // 键盘快捷键
 document.addEventListener('keydown', (e) => {
