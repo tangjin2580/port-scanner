@@ -915,6 +915,39 @@ tr:hover {
   margin-top: 20px;
 }
 
+/* 排序栏 */
+.bookmarks-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.sort-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.sort-btn {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  transition: var(--transition);
+  font-family: inherit;
+}
+.sort-btn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+.sort-btn.active {
+  background: var(--accent-cyan-dim);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
 /* ═══════ 驾驶舱 / 大屏 ═══════ */
 .cockpit {
   max-width: 1600px;
@@ -1546,17 +1579,22 @@ tr:hover {
           <p class="bookmarks-subtitle">保存常用服务入口，再也不用记端口号</p>
         </div>
         <div class="bookmarks-actions">
-          <button class="btn btn-secondary" onclick="saveAllFromResults()" style="font-size:0.8rem;padding:8px 16px">📥 从扫描结果保存全部</button>
+          <button class="btn btn-secondary" onclick="saveAllFromResults()" style="font-size:0.8rem;padding:8px 16px">📥 从扫描结果保存</button>
+          <button class="btn btn-secondary" onclick="showBatchAddModal()" style="font-size:0.8rem;padding:8px 16px">📋 批量添加</button>
           <button class="btn btn-primary" onclick="showAddBookmarkModal()" style="font-size:0.8rem;padding:8px 16px">➕ 手动添加</button>
         </div>
       </div>
 
-      <div id="bookmarksList" class="bookmarks-list">
-        <div class="empty-state" id="emptyBookmarks">
-          <div class="empty-icon">📌</div>
-          <p>暂存书签<br>扫描后保存，或手动添加你的服务</p>
-        </div>
+      <!-- 排序栏 -->
+      <div class="bookmarks-sort" id="bookmarksSort" style="display:none">
+        <span class="sort-label">排序：</span>
+        <button class="sort-btn active" data-sort="web" onclick="sortBookmarks('web')">🌐 Web优先</button>
+        <button class="sort-btn" data-sort="ip" onclick="sortBookmarks('ip')">🔢 IP地址</button>
+        <button class="sort-btn" data-sort="name" onclick="sortBookmarks('name')">🏷️ 名称</button>
+        <button class="sort-btn" data-sort="count" onclick="sortBookmarks('count')">📊 服务数量</button>
       </div>
+
+      <div id="bookmarksList" class="bookmarks-list"></div>
     </div>
   </div>
 </div>
@@ -1593,6 +1631,25 @@ tr:hover {
     <div class="modal-btns">
       <button class="btn btn-secondary" onclick="hideAddBookmarkModal()">取消</button>
       <button class="btn btn-primary" onclick="addManualBookmark()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 批量添加弹窗 -->
+<div class="modal-overlay" id="batchAddModal">
+  <div class="modal-box" style="width:540px">
+    <h3>📋 批量添加服务</h3>
+    <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:12px">每行一个，格式：<code style="color:var(--accent-cyan)">名称,IP,端口,协议</code>（协议可选，默认 http）</p>
+    <div class="form-group">
+      <textarea id="batchText" rows="8" placeholder="NAS面板,192.168.1.100,5000,http
+Jellyfin,192.168.1.100,8096,http
+路由器,192.168.1.1,80,http
+SSH,192.168.1.100,22,ssh
+Home Assistant,192.168.1.50,8123,http" style="width:100%;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-family:'JetBrains Mono',monospace;font-size:0.85rem;resize:vertical;line-height:1.6"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="hideBatchAddModal()">取消</button>
+      <button class="btn btn-primary" onclick="batchAddBookmarks()">批量添加</button>
     </div>
   </div>
 </div>
@@ -2259,6 +2316,10 @@ function setPorts(v) { document.getElementById('portInput').value = v; }
 
 /* ═══════ 书签管理 ═══════ */
 const BM_KEY = 'netscope_bookmarks';
+const BM_SORT_KEY = 'netscope_bookmark_sort';
+
+// 当前排序方式
+let currentSort = localStorage.getItem(BM_SORT_KEY) || 'web';
 
 // 服务图标映射
 const SERVICE_ICONS = {
@@ -2307,7 +2368,6 @@ function getServiceUrl(ip, port, service) {
   if (service === 'https' || service === 'https-alt' || port === 443 || port === 8443) {
     return port === 443 ? `https://${ip}` : `https://${ip}:${port}`;
   }
-  // 默认 http
   return port === 80 ? `http://${ip}` : `http://${ip}:${port}`;
 }
 
@@ -2318,34 +2378,68 @@ function getLinkType(service) {
   return 'other';
 }
 
+// IP 转数字用于排序
+function ipToNum(ip) {
+  return ip.split('.').reduce((a, b) => (a << 8) + parseInt(b), 0) >>> 0;
+}
+
+// 排序书签
+function sortBookmarks(mode) {
+  currentSort = mode;
+  localStorage.setItem(BM_SORT_KEY, mode);
+  // 更新按钮状态
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sort === mode);
+  });
+  renderBookmarks();
+}
+
+function getSortedIPs(bm) {
+  const ips = Object.keys(bm);
+  switch (currentSort) {
+    case 'ip':
+      ips.sort((a, b) => ipToNum(a) - ipToNum(b));
+      break;
+    case 'name':
+      ips.sort((a, b) => {
+        const na = (bm[a].hostname || a).toLowerCase();
+        const nb = (bm[b].hostname || b).toLowerCase();
+        return na.localeCompare(nb, 'zh');
+      });
+      break;
+    case 'count':
+      ips.sort((a, b) => bm[b].services.length - bm[a].services.length);
+      break;
+    case 'web':
+    default:
+      ips.sort((a, b) => {
+        const aWeb = bm[a].services.filter(s => getLinkType(s.service) === 'web').length;
+        const bWeb = bm[b].services.filter(s => getLinkType(s.service) === 'web').length;
+        if (bWeb !== aWeb) return bWeb - aWeb;
+        return ipToNum(a) - ipToNum(b);
+      });
+  }
+  return ips;
+}
+
 // 保存单个服务到书签
 function saveBookmark(ip, port, service, name, note) {
   const bm = getBookmarks();
   if (!bm[ip]) {
-    bm[ip] = {
-      hostname: '',
-      os_hint: '',
-      services: []
-    };
+    bm[ip] = { hostname: '', os_hint: '', services: [] };
   }
-  // 去重
   const exists = bm[ip].services.find(s => s.port === port);
   if (exists) {
     exists.service = service;
     exists.name = name || exists.name;
     exists.note = note || exists.note;
   } else {
-    bm[ip].services.push({
-      port,
-      service,
-      name: name || getServiceName(service),
-      note: note || ''
-    });
+    bm[ip].services.push({ port, service, name: name || getServiceName(service), note: note || '' });
   }
-  // 按端口号排序
   bm[ip].services.sort((a, b) => a.port - b.port);
   saveBookmarks(bm);
   renderBookmarks();
+  showToast(`已保存 ${ip}:${port}`, 'success');
 }
 
 // 删除设备
@@ -2380,11 +2474,7 @@ function saveAllFromResults() {
   for (const [ip, host] of Object.entries(results)) {
     if (!host.open_ports || !host.open_ports.length) continue;
     if (!bm[ip]) {
-      bm[ip] = {
-        hostname: host.hostname || '',
-        os_hint: host.os_hint || '',
-        services: []
-      };
+      bm[ip] = { hostname: host.hostname || '', os_hint: host.os_hint || '', services: [] };
     } else {
       if (host.hostname) bm[ip].hostname = host.hostname;
       if (host.os_hint) bm[ip].os_hint = host.os_hint;
@@ -2392,12 +2482,7 @@ function saveAllFromResults() {
     for (const p of host.open_ports) {
       const exists = bm[ip].services.find(s => s.port === p.port);
       if (!exists) {
-        bm[ip].services.push({
-          port: p.port,
-          service: p.service || 'unknown',
-          name: getServiceName(p.service),
-          note: p.version || ''
-        });
+        bm[ip].services.push({ port: p.port, service: p.service || 'unknown', name: getServiceName(p.service), note: p.version || '' });
         count++;
       }
     }
@@ -2424,26 +2509,24 @@ function openAllServices(ip) {
 function renderBookmarks() {
   const bm = getBookmarks();
   const list = document.getElementById('bookmarksList');
-  const empty = document.getElementById('emptyBookmarks');
+  const sortBar = document.getElementById('bookmarksSort');
   const ips = Object.keys(bm);
 
   if (!ips.length) {
-    list.innerHTML = '';
-    list.appendChild(empty);
-    empty.style.display = '';
+    sortBar.style.display = 'none';
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📌</div>
+        <p>暂存书签<br>扫描后保存，或手动添加你的服务</p>
+      </div>`;
     return;
   }
 
-  empty.style.display = 'none';
+  sortBar.style.display = 'flex';
 
-  // 排序：有 Web 服务的排前面
-  ips.sort((a, b) => {
-    const aWeb = bm[a].services.filter(s => getLinkType(s.service) === 'web').length;
-    const bWeb = bm[b].services.filter(s => getLinkType(s.service) === 'web').length;
-    return bWeb - aWeb;
-  });
+  const sortedIPs = getSortedIPs(bm);
 
-  list.innerHTML = ips.map(ip => {
+  list.innerHTML = sortedIPs.map(ip => {
     const dev = bm[ip];
     const osIcon = dev.os_hint === 'Windows' ? '🪟' : dev.os_hint === 'Linux/Unix' ? '🐧' : '🖥️';
     const displayName = dev.hostname || ip;
@@ -2454,7 +2537,6 @@ function renderBookmarks() {
       const url = getServiceUrl(ip, s.port, s.service);
       const linkType = getLinkType(s.service);
       const linkLabel = linkType === 'web' ? '打开 ↗' : linkType === 'ssh' ? '连接' : '访问';
-      const linkCls = linkType;
       return `
         <div class="service-row">
           <div class="svc-icon">${icon}</div>
@@ -2462,7 +2544,7 @@ function renderBookmarks() {
             <div class="svc-name">${escapeHtml(s.name)}</div>
             <div class="svc-detail">${s.port}/${s.service}${s.note ? ' — ' + escapeHtml(s.note) : ''}</div>
           </div>
-          <a href="${url}" target="_blank" rel="noopener noreferrer" class="svc-link ${linkCls}">${linkLabel}</a>
+          <a href="${url}" target="_blank" rel="noopener noreferrer" class="svc-link ${linkType}">${linkLabel}</a>
           <button class="svc-del" onclick="removeBookmarkService('${ip}', ${s.port})" title="删除">✕</button>
         </div>
       `;
@@ -2475,7 +2557,7 @@ function renderBookmarks() {
             <span class="device-icon">${osIcon}</span>
             <div>
               <div class="device-name">${escapeHtml(displayName)}</div>
-              <div class="device-ip">${ip}${dev.os_hint ? '' : ''}</div>
+              <div class="device-ip">${ip}</div>
             </div>
             ${dev.os_hint ? `<span class="device-os">${dev.os_hint}</span>` : ''}
           </div>
@@ -2516,18 +2598,66 @@ function addManualBookmark() {
   if (!ip) return showToast('请填写 IP 地址', 'error');
   if (!port || port < 1 || port > 65535) return showToast('端口范围 1-65535', 'error');
 
-  // 根据协议推导 service
   let service = proto;
   if (proto === 'http' && port === 80) service = 'http';
   if (proto === 'https' && port === 443) service = 'https';
 
   saveBookmark(ip, port, service, name || getServiceName(service), note);
   hideAddBookmarkModal();
-  showToast(`已保存 ${ip}:${port}`, 'success');
 }
 
-// 点击弹窗外部关闭
-/* 在初始化区域绑定 */
+// 批量添加弹窗
+function showBatchAddModal() {
+  document.getElementById('batchAddModal').classList.add('active');
+  document.getElementById('batchText').value = '';
+  document.getElementById('batchText').focus();
+}
+
+function hideBatchAddModal() {
+  document.getElementById('batchAddModal').classList.remove('active');
+}
+
+function batchAddBookmarks() {
+  const text = document.getElementById('batchText').value.trim();
+  if (!text) return showToast('请输入服务信息', 'error');
+
+  const lines = text.split('\n').filter(l => l.trim());
+  const bm = getBookmarks();
+  let added = 0, errors = 0;
+
+  for (const line of lines) {
+    const parts = line.split(',').map(s => s.trim());
+    if (parts.length < 3) { errors++; continue; }
+
+    const name = parts[0];
+    const ip = parts[1];
+    const port = parseInt(parts[2]);
+    const service = parts[3] || 'http';
+
+    if (!ip || !port || port < 1 || port > 65535) { errors++; continue; }
+
+    if (!bm[ip]) {
+      bm[ip] = { hostname: '', os_hint: '', services: [] };
+    }
+    const exists = bm[ip].services.find(s => s.port === port);
+    if (!exists) {
+      bm[ip].services.push({ port, service, name: name || getServiceName(service), note: '' });
+      added++;
+    }
+  }
+
+  // 每台设备内排序
+  for (const ip of Object.keys(bm)) {
+    bm[ip].services.sort((a, b) => a.port - b.port);
+  }
+
+  saveBookmarks(bm);
+  renderBookmarks();
+  hideBatchAddModal();
+
+  if (added > 0) showToast(`已添加 ${added} 个服务${errors ? `，${errors} 行格式错误被跳过` : ''}`, 'success');
+  else showToast('未添加任何服务，请检查格式', 'error');
+}
 
 function escapeHtml(str) {
   if (!str) return '';
@@ -2579,6 +2709,9 @@ renderBookmarks();
 // 弹窗点击外部关闭
 document.getElementById('addBookmarkModal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) hideAddBookmarkModal();
+});
+document.getElementById('batchAddModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) hideBatchAddModal();
 });
 
 // 键盘快捷键
